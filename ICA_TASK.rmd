@@ -1,0 +1,751 @@
+---
+title: "ICA Data Analysis Report Assessment"
+Author: "CLIENT"
+Date: "26/04/2021"
+output: 
+    html_document: 
+    toc: yes
+    fig_width: 4
+    fig_height: 3.5
+    fig_caption: yes
+---
+
+```{r setup, include=FALSE}
+# IMPORTING/LOADING RELEVANT PACKAGES
+packages <- c("tidyverse","ggplot2","dplyr","caTools","knitr","kableExtra","gridExtra","rpart","rpart.plot","caret","data.tree","randomForest")
+lapply(packages, require, character.only = TRUE)
+
+opts_chunk$set(echo = FALSE)
+```
+
+<br><br>
+
+## **1. INTRODUCTION SECTION**
+
+<br>
+
+#### **1.1. DATASET DESCRIPTION**
+
+The Telecoms-Dataset has been selected for this assessment task based on the following criteria:  
+
+1. The Dataset is publicly available/accessible via kaggle.com through this       link: [telecom-users-dataset](https://www.kaggle.com/radmirzosimov/telecom-users-dataset). Also, it contains real-world observations.  
+      
+2. The Dataset exceeds the minimum requirements: at least 1000 observations and 5 attributes/features, as described for the assessment.   
+
+****
+
+#### **1.2. PROBLEM DEFINITION**
+
+
+This Dataset contains observations about customers of a mobile network service provider who intends to reduce customer dissatisfaction/disengagement. A singular variable "churn" has been used to describe the rate of service disengagement by customers, and it is a feature of the Telecoms-Dataset. 
+
+The service provider, in the hopes of reducing this "churn" across its subscribers, requires relationships to be observed across all the variables/attributes  of the resulting "Telecoms-Dataset" to discover potential opportunities for achieving an overall reduced "churn" and customer disengagement.  
+
+****
+
+#### **1.3. APPLICABLE MACHINE LEARNING ALGORITHMS**
+
+The following machine learning algorithms are applicable to solving the defined problem: Logistic regression, Decision tree classification, Random Forest   classification, K-Nearest Neighbour, and Naive Bayes classification algorithms. This choice of algorithms is based on the observation of the data during  analysis, which informs that the intended prediction is of a classification type (the output/dependent variable "churn" is discrete/categorical).
+
+However, **Logistic regression, Decision tree classification, and Random forest classification** methods were used in solving this problem.
+
+****
+
+<br>
+
+## **2. DATA PRE-PROCESSING, ANALYSIS, AND VISUALIZATION SECTION**
+
+<br>
+
+```{r echo=FALSE}
+
+#CLEARING CONSOLE AND WORKSPACE
+cat("\f")      # clears console
+rm(list=ls())  # clears the Workspace
+```
+
+#### **2.1. DATA EXPLORATION**
+
+First, the Dataset is imported from the working directory for initial observation.
+
+`IMPORTING THE TELECOMS DATASET FOR EXPLORATORY DATA ANALYSIS (EDA)`
+
+```{r echo=TRUE}
+
+data_set <- read.csv("telecom_users.csv")    #importing Dataset from directory
+                                             # relative path to working directory is implied for the import
+```
+
+`EXPLORING THE DATA`
+
+```{r echo=TRUE}
+
+df <- head(data_set[,1:11])         # Checking the first 6 observations of the first 11 features; truncated for display aesthetics
+
+nice_table <- function(df,...){
+  # This function takes a Dataframe and returns a styled display of the Dataframe
+  kable(df) %>% kable_styling(bootstrap_options = c("striped","hover","condensed"), font_size= 10, full_width = F)   #styling the output
+}
+
+nice_table(df)
+```
+
+Now, getting important numerical statistics about the data. This will inform about the present features/attributes and their usefulness or otherwise.
+
+```{r echo = TRUE}
+
+str(data_set) # Observing data structure, trends, and details.
+```
+
+
+It can be observed that the data has **5986 observations/attributes and 22 variables**. Also, all the variables are of two data-types: integers and characters.
+Most of the attributes in this dataset are **"Categorical"**, with only "tenure, Monthly charges, and Total charges" being **"Continuous"**.
+
+To provide a better context of the Dataset, the features/columns in the data can be defined as follows:
+
+```
+****
+"X": This is an unnamed feature, which seems to represent a pseudorandom identification for each customer.
+
+"CustomerID": This is the unique identification number assigned to each customer/subscriber
+
+"gender": The gender of the customer, either "male" or "female"
+
+"SeniorCitizen": This describes the age range of the customer, either 1 or 0 respectively if the customer is elderly or otherwise.
+
+"Partner": This indicates if the customer has a significant other or not. It is recorded as either "Yes" or "No".
+
+"Dependents": This indicates if the customer has a dependents (children, aged parents, siblings, etc.) other or not. It is recorded as either "Yes" or "No".
+
+"tenure": This indicates how long a customer has been subscribed to the telecoms company (in months), it is a continuous variable.
+
+"PhoneService": This indicates whether a customer has phone service or otherwise. It is also recorded as either "Yes" or "No"
+
+"MultipleLines": This indicates if the customer has more than one phone line. It is recorded as either "Yes", "No", or "No Phone Service"
+
+"InternetService": This indicates if the customer has internet service. It is recorded as either "DSL", "Fibre Optic", or "No"
+
+"OnlineSecurity": This indicates if the customer has online security (either via antivirus or professional service). It is recorded as either "Yes", "No", or No internet service
+
+"OnlineBackup": This indicates if the customer has online backup options e.g. onedrive. It is recorded as either "Yes", "No", or No internet service
+
+"DeviceProtection": This indicates if the customer has device protection. It is recorded as either "Yes", "No", or No internet service
+
+"TechSupport": This indicates if the customer has access to technical support. It is recorded as either "Yes", "No", or No internet service
+
+"PaymentMethod": This indicates the customer's preffered payment option. It is recorded as either "Credit card (automatic)", Bank transfer (automatic), Electronic check, Mailed check, or "No"
+
+"MonthlyCharges": This informs about how much the customer pays per month (in US dollars).
+
+"TotalCharges": Total amount the customers has paid, so far (in US dollars). 
+
+"StreamingTV": This indicates if the customer streams TV. It is recorded as either "Yes", "No", or No internet service
+
+"StreamingMovies": This indicates if the customer streams Movies. It is recorded as either "Yes", "No", or No internet service
+
+"Contract": This describes the customer's service contract. It is recorded as either Month-to-month, One year, or Two year
+
+"PaperlessBilling": This indicates if the customer currently opts for paperless billing. It is recorded as either "Yes" or "No".
+
+"Churn": This informs whether the customer has churned/disengaged or not. It is recorded as either "Yes", "No"
+
+```
+
+`GETTING FURTHER INFORMATION ON THE DATA`
+
+```{r echo=TRUE}
+nice_table(summary(data_set[,1:11]))      # Getting numerical summaries of the data.
+```
+
+
+#### **2.2. CLEANING THE IMPORTED DATA**
+
+As is usually the case, not all the variables in this dataset are relevant.
+For example, the "x" and "customerID" variables are not of any significance to
+solving the task at hand and can be removed using **dplyr's** *select()* method.
+
+```{r echo=TRUE}
+
+data_set <- select(data_set, -(c("X","customerID")))
+```
+
+Now we have 20 features/attributes. Further observation of the dataset informs that the categorical data takes one of two or three possible values; however, all the three-valued categorical data can be reduced to two(2) i.e. "OnlineSecurity, MultipleLines, Online Backup, etc".
+
+```{r echo=TRUE}
+fix_data <- function(column){
+  ## This function accepts a column with categorical data and converts them
+  ## to "Yes" or "No" based on a condition.
+  ifelse(column %in% c("Yes","Fiber optic","DSL","1"), column <-"Yes",column <-"No") 
+}   
+
+affected_columns <- c("SeniorCitizen", "Partner", "Dependents", "PhoneService",
+                      "MultipleLines", "InternetService", "OnlineSecurity",
+                      "OnlineBackup", "DeviceProtection", "TechSupport",
+                      "StreamingTV", "StreamingMovies", "PaperlessBilling",
+                      "Churn")
+
+cleaned <- sapply(data_set[affected_columns],
+                  fix_data)                   #using Sapply() to auto-iterate
+
+df1 <- head(cleaned[,1:7], 10)    # Viewing the changed data before commiting to data_set
+nice_table(df1)
+```
+
+`Displaying the remaining table`
+
+```{r echo=T}
+
+df2 <- head(cleaned[,8:14], 10)
+nice_table(df2)
+```
+
+Since we will use our dataset for machine learning puporses, it is essential to convert the categorical variables to factors.
+
+```{r echo=TRUE}
+
+cleaned <- data.frame(cleaned)
+cleaned[affected_columns] <- lapply(cleaned[affected_columns],factor)
+str(cleaned)
+```
+
+```{r echo = TRUE}  
+
+summary(cleaned)
+data_set[affected_columns] <- cleaned    #Merging with full dataset.
+```
+
+We still need to confirm there are no missing values or NA's in the dataset.
+
+`CHECKING FOR NAs`
+
+```{r echo=T}
+
+columns_with_NAs <- colnames(data_set)[apply(data_set,2,anyNA)]
+print(paste("The following columns have NAs/missing data: ",columns_with_NAs))
+```
+Since the NA only occured in the ***TotalCharges*** column, we can check how many NAs occurred, and the rows of occurence to get more information.
+
+```{r echo=T}
+
+sum(is.na(data_set$TotalCharges))          # Count NAs in $TotalCharges
+```
+```{r echo=T}
+data_set[is.na(data_set$TotalCharges),]    #Getting the rows with NAs
+```
+The NAs occured in rows: `357,635,2772,3087,3256,4327,5376,5383,5696,5952`. It can also be observed that the customers with NAs still have an active subscription, with most of them running two-year contracts and no *CHURN*
+
+
+Since we have the NA in a column with numeric data, we could replace the missing values with the mean/median of that column.
+This time, we use the mean.
+```{r echo=T}
+
+summary(data_set$TotalCharges)    #To check the info on the column and compare with computed mean
+mean_val <- mean(data_set$TotalCharges, na.rm = TRUE)
+mean_val    #mean of the TotalCharges column
+
+cleaned <- ifelse(is.na(data_set$TotalCharges),mean_val,data_set$TotalCharges)
+```
+
+Confirming the changes
+```{r echo=T}
+
+head(cleaned) == head(data_set$TotalCharges) & tail(cleaned) == tail(data_set$TotalCharges)    #comparing the first and last 6 rows
+
+## After confirming, we can further see the replacements
+cleaned[c(357,635,2772,3087,3256,4327,5376,5383,5696,5952)]
+data_set$TotalCharges[c(357,635,2772,3087,3256,4327,5376,5383,5696,5952)]
+```
+
+Merging with the dataset
+```{r echo=T}
+
+data_set$TotalCharges <- cleaned
+sapply(data_set, function(x) sum(is.na(x)))   #confirming changes
+```
+
+Now that our data is fully cleaned, we can go ahead and do some analysis via visualizations with ggplot2
+
+
+
+#### **2.3. DATA ANALYSIS**
+
+The initial insight offered by the function(s) `*str()*`and `*summary()*, while interesting, is not adequate to understand the data.
+With the clean dataset, we can visualize some trends via barplots, boxplots, scatterplots and categorical plots.
+
+`Observing the target feature, CHURN`
+
+```{r echo = TRUE}
+
+ggplot(data_set, aes(x = Churn)) +
+geom_bar() +
+geom_text(aes(y = ..count.. -300, 
+            label = paste0(round(prop.table(..count..),4) * 100, '%')), 
+            stat = 'count', 
+            position = position_dodge(.1), 
+            size = 4)+
+  labs(y = "Observations", title = "                           CHURN ACROSS ALL CUSTOMERS")
+```
+
+It can be observed that 73.49% of the customers had no churn. However, the remaining 26.51% will still be a significant concern for the service provider.
+We can also observe the other categorical data for similar overview.
+
+`Grid plot of Gender, Senior citizen, Partner, and dependents columns`
+
+```{r echo = TRUE}
+
+#Gender plot
+plot1 <- ggplot(data_set, aes(x = gender)) +
+  geom_bar() +
+  geom_text(aes(y = ..count.. -300, 
+                label = paste0(round(prop.table(..count..),4) * 100, '%')), 
+            stat = 'count', 
+            position = position_dodge(.1), 
+            size = 4) + labs(y = "Observations")
+
+
+#Senior citizen plot
+plot2 <- ggplot(data_set, aes(x = SeniorCitizen)) +
+  geom_bar() +
+  geom_text(aes(y = ..count.. -300, 
+                label = paste0(round(prop.table(..count..),4) * 100, '%')), 
+            stat = 'count', 
+            position = position_dodge(.1), 
+            size = 4) + labs(y = "Observations")
+
+#Partner plot
+plot3 <- ggplot(data_set, aes(x = Partner)) +
+  geom_bar() +
+  geom_text(aes(y = ..count.. -300, 
+                label = paste0(round(prop.table(..count..),4) * 100, '%')), 
+            stat = 'count', 
+            position = position_dodge(.1), 
+            size = 4) + labs(y = "Observations")
+
+#Dependents plot
+plot4 <- ggplot(data_set, aes(x = Dependents)) +
+  geom_bar() +
+  geom_text(aes(y = ..count.. -300, 
+                label = paste0(round(prop.table(..count..),4) * 100, '%')), 
+            stat = 'count', 
+            position = position_dodge(.1), 
+            size = 4) + labs(y = "Observations")
+
+# grid plot
+grid.arrange(plot1, plot2, plot3, plot4, nrow=2)
+```
+
+The resulting plots inform of a certain trend in the data:  
+
+1. The gender and partner features are closely distributed between "Yes" and "No". This may imply a minimal impact on the overall churn  
+
+2. The categorical plot of Senior Citizens and Dependent features show a large variation between "Yes" and "No". These may be significant factors  
+
+
+Further plots on the various services rendered to the customers may offer useful information as well. This time, the plots are further differentiated by the "churn" variable.
+
+`Grid plot of the services offered`
+
+```{r echo = TRUE}
+# Phone service plot
+p5 <- ggplot(data_set, aes(x = PhoneService)) +
+  geom_bar() +
+  geom_text(aes(y = ..count.. -300, 
+                label = paste0(round(prop.table(..count..),4) * 100, '%')), 
+            stat = 'count', 
+            position = position_dodge(.1), 
+            size = 3)
+
+# Multiple phone lines 
+p6 <- ggplot(data_set, aes(x = MultipleLines)) +
+  geom_bar() +
+  geom_text(aes(y = ..count.. -300, 
+                label = paste0(round(prop.table(..count..),4) * 100, '%')), 
+            stat = 'count', 
+            position = position_dodge(.1), 
+            size = 3) + labs(y = "Observations")
+
+# Internet service 
+p7 <- ggplot(data_set, aes(x = InternetService)) +
+  geom_bar() +
+  geom_text(aes(y = ..count.. -300, 
+                label = paste0(round(prop.table(..count..),4) * 100, '%')), 
+            stat = 'count', 
+            position = position_dodge(.1), 
+            size = 3) + labs(y = "Observations")
+
+# Online security 
+p8 <- ggplot(data_set, aes(x = OnlineSecurity)) +
+  geom_bar() +
+  geom_text(aes(y = ..count.. -300, 
+                label = paste0(round(prop.table(..count..),4) * 100, '%')), 
+            stat = 'count', 
+            position = position_dodge(.1), 
+            size = 3) + labs(y = "Observations")
+
+# Online backup 
+p9 <- ggplot(data_set, aes(x = OnlineBackup)) +
+  geom_bar() +
+  geom_text(aes(y = ..count.. -300, 
+                label = paste0(round(prop.table(..count..),4) * 100, '%')), 
+            stat = 'count', 
+            position = position_dodge(.1), 
+            size = 3) + labs(y = "Observations")
+
+# Device Protection 
+p10 <- ggplot(data_set, aes(x = DeviceProtection)) +
+  geom_bar() +
+  geom_text(aes(y = ..count.. -300, 
+                label = paste0(round(prop.table(..count..),4) * 100, '%')), 
+            stat = 'count', 
+            position = position_dodge(.1), 
+            size = 3) + labs(y = "Observations")
+
+# Tech Support 
+p11 <- ggplot(data_set, aes(x = TechSupport)) +
+  geom_bar() +
+  geom_text(aes(y = ..count.. -300, 
+                label = paste0(round(prop.table(..count..),4) * 100, '%')), 
+            stat = 'count', 
+            position = position_dodge(.1), 
+            size = 3) + labs(y = "Observations")
+
+# Streaming TV 
+p12 <- ggplot(data_set, aes(x = StreamingTV)) +
+  geom_bar() +
+  geom_text(aes(y = ..count.. -300, 
+                label = paste0(round(prop.table(..count..),4) * 100, '%')), 
+            stat = 'count', 
+            position = position_dodge(.1), 
+            size = 3) + labs(y = "Observations")
+
+# Streaming Movies
+p13 <- ggplot(data_set, aes(x = StreamingMovies)) +
+  geom_bar() +
+  geom_text(aes(y = ..count.. -300, 
+                label = paste0(round(prop.table(..count..),4) * 100, '%')), 
+            stat = 'count', 
+            position = position_dodge(.1), 
+            size = 3) + labs(y = "Observations")
+
+```
+
+```{r echo = TRUE}
+# grid 1
+grid.arrange(grobs = list(p5, p6, p7), nrow = 1)
+```
+****
+```{r echo = TRUE}
+#grid 2
+grid.arrange(grobs = list(p8, p9, p10), nrow = 1)
+```
+****
+```{r echo = TRUE}
+#grid 3
+grid.arrange(grobs = list(p11, p12, p13), nrow = 1)
+```
+****
+
+The resulting plots show that most of the customers have phone service with single phone lines, internet access/subscription, no online security or backup, no device protection or tech support, and they don't stream TV or movies. There was a significant variation in the plots, with the most variation in the "phone service and Internet service" plots.
+
+Furthermore, we can visualize the other categories: contract, paperless billing method, and payment method.  
+
+`Plotting the remaining categorical data`
+
+```{r echo = TRUE}
+
+#Contract status 
+p14 <- ggplot(data_set, aes(x = Contract)) +
+  geom_bar() +
+  geom_text(aes(y = ..count.. -200, 
+                label = paste0(round(prop.table(..count..),4) * 100, '%')), 
+            stat = 'count', 
+            position = position_dodge(.1), 
+            size = 3) + labs(y = "Observations")
+
+#Paperless billing 
+p15 <- ggplot(data_set, aes(x = PaperlessBilling)) +
+  geom_bar() +
+  geom_text(aes(y = ..count.. -200, 
+                label = paste0(round(prop.table(..count..),4) * 100, '%')), 
+            stat = 'count', 
+            position = position_dodge(.1), 
+            size = 3) + labs(y = "Observations")
+
+
+#grid 4
+grid.arrange(grobs = list(p14, p15), nrow=1)
+```
+```{r echo = TRUE}
+#Payment method
+p16 <- ggplot(data_set, aes(x = PaymentMethod)) +
+  geom_bar() +
+  geom_text(aes(y = ..count.. -200, 
+                label = paste0(round(prop.table(..count..),4) * 100, '%')), 
+            stat = 'count', 
+            position = position_dodge(.1), 
+            size = 3) + labs(y = "Observations")
+p16
+```
+
+The above plots inform of a high variability in the contract feature, for which many subscribers fall into the "month-month" category. This, combined with tenure, may inform of users tendency to churn or otherwise based on their loyalty to the network. Payment method also offers a significant insight, with most subscribers adopting the electronic check option.  
+
+Finally, we can observe the continuous variables via bar plots and histograms.
+
+`Observing tenure`
+
+```{r echo = TRUE}
+
+ggplot(data_set, aes(x = tenure)) + geom_bar(aes (colour = factor(Churn))) + labs(y = "Observations")
+
+``` 
+
+It can be observed that customers with the shortest tenure were more likely to churn than those that have used the network for longer. Similarly, we can determine if the "CHURN" is financially motivated by observing the monthly charges and total charges features.
+
+```{r echo = TRUE}
+
+ggplot(data_set, aes(x = MonthlyCharges)) + geom_histogram(aes (colour = factor(Churn)), bins = 50) + labs(y = "Observations")
+
+``` 
+
+```{r echo = TRUE}
+
+ggplot(data_set, aes(x = TotalCharges)) + geom_histogram(aes (colour = factor(Churn)), bins = 50) + labs(y = "Observations")
+
+``` 
+
+The MonthlyCharges and TotalCharges plots show some interesting insights into the data. First, due to the distribution of the MonthlyCharges data, it can be deduced that the "CHURN" is not financially motivated. This is because both high and low paying subscribers (monthly) had low CHURN tendencies. However, the TotalCharges plot inform that subscribers that have paid the most i.e \$2500+ were less likely to churn. THe high churn rate among subscribers that have paid less that $2500 in total may then be attributed to the effect of "tenure".
+
+> New subscribers have a higher tendency to churn, given the contribution of other factors.
+
+<br>
+
+## **3. MACHINE LEARNING SECTION**
+
+<br>
+
+Here, we are going to apply the three choice machine learning algorithms to the cleaned Dataset. To achieve this, the data needs to first be split into training and testing data. One of the already loaded libraries "caTools" offers this flexbility.
+
+`SPlitting the Dataset`
+
+```{r echo = TRUE}
+
+set.seed(123)   #setting random generator state to allow for reproducibility
+data_split <- sample.split(data_set, SplitRatio = 0.7)
+train_data <- subset(data_set, data_split == "TRUE")
+test_data <- subset(data_set, data_split == "FALSE")
+```
+
+#### 3.1. **LOGISTIC REGRESSION**
+
+`Creating and training a logistic regression model`
+
+```{r echo = TRUE}
+
+logR_model <- glm(Churn ~., data = train_data, family = "binomial")
+summary(logR_model)
+```
+
+The results of the model training show the most significant attributes of our trained model. As expected, Tenure, Contract-Type, PhoneService = "Yes", OnlineSecurity = "Yes", TechSupport = "Yes", and "MonthlyCharges" were the most significant features.
+
+`Testing the model`
+
+```{r echo = TRUE}
+
+result <- predict(logR_model, test_data, type = "response")
+```
+
+`Drawing up a confusion matrix for evaluation`
+
+```{r echo = TRUE}
+
+conf_mat <- table(actual_Value = test_data$Churn, predicted_Value = result > 0.5)
+colnames(conf_mat) <- c("No","Yes")
+conf_mat
+```
+
+From the result obtained, we can calculate the accuracy of the model at predicting "No", "Yes", and "Yes or No" correctly.
+
+`Model Accuracy`
+
+```{r echo = TRUE}
+
+conf_results <- function(conf_matrix){
+  
+  # grabbing indexes of correct predictions
+  correct_no <- conf_matrix[1,1]
+  correct_yes <- conf_matrix[2,2]
+  
+  # grabbing indexes of wrong predictions
+  wrong_no <- conf_matrix[2,1]
+  wrong_yes <- conf_matrix[1,2]
+  
+  accuracy_for_predicting_No <- round(correct_no/sum(correct_no, wrong_no),4) * 100
+  cat("Accuracy of model at predicting 'NO'/ Pos Pred Value: ",accuracy_for_predicting_No,"%\n")
+  
+  accuracy_for_predicting_Yes <- round(correct_yes/sum(correct_yes, wrong_yes),4) * 100
+  cat("Accuracy of model at predicting 'YES'/ Neg Pred Value: ",accuracy_for_predicting_Yes,"%\n")
+  
+  sensitivity <- round(correct_no/sum(correct_no, wrong_yes),4) * 100
+  cat("Model Sensitivity: ",sensitivity,"%\n")
+  
+  specificity <- round(correct_yes/sum(correct_yes, wrong_no),4) * 100
+  cat("Model Specificity: ",specificity,"%\n")
+  
+  overall_accuracy <- round((correct_no + correct_yes)/(sum(correct_no, wrong_no, correct_yes, wrong_yes)),4) * 100
+  cat("Overall Model Accuracy: ",overall_accuracy,"%")
+}
+
+conf_results(conf_mat)
+```
+
+The results shows that the model is better at predicting if a customer will stay with the network than otherwise. However, the model offers good prediction accuracy and can predict correctly about 80% of the time.
+
+<br>
+
+#### 3.2. **Decision Tree**
+
+`Creating and training the model`
+
+```{r echo = TRUE}
+
+tree_model <- rpart(Churn ~., data = train_data)  # training the decision tree model
+summary(tree_model)
+
+```
+
+The summary of the decision tree training informs of some agreement with what was observed from the logistic regression analysis. In this case, features are ranked according to their importance with **Contract**,**Tenure**, and **Total Charges** being the most important variables (accounting for 65% of the variations in "Churn").
+
+`Visualizing the decisions`
+
+```{r echo = TRUE}
+
+rpart.plot(tree_model)
+```
+
+`Another plot showing the choices`
+
+```{r echo = TRUE}
+
+prp(tree_model)
+```
+
+`Testing the model`
+
+```{r echo = TRUE}
+
+prediction <- predict(tree_model, test_data, type = "class")
+summary(prediction)
+```
+
+`Confusion matrix for evaluating the decision tree model`
+
+```{r}
+
+conf_mat <- confusionMatrix(prediction, test_data$Churn)
+conf_mat
+```
+
+Perhaps, a better way to visualize the confusion matrix is in form of a table.
+
+```{r echo = TRUE}
+
+conf_mat <- table(actual_Value = test_data$Churn, predicted_Value = prediction)
+conf_mat %>% data.frame() %>% nice_table()
+```
+
+
+`We can also do manual computations to verify the results of the *confusionMatrix()* function`
+
+```{r echo = TRUE}
+
+conf_results(conf_mat)
+```
+
+Here, we can see that the accuracy of the decision tree model is at approximately 77%. This is also a good accuracy but slightly lower than what the logistic regression offers.
+
+
+#### 3.2. **Random Forest**
+
+This is the final machine learning model for examining this Dataset. This logically follows after the decision trees because it is a method that leverages on the hybridization of multiple decision trees to achieve a more definitive result. 
+
+> A random forest is an ensemble of decision trees
+
+Prior to building and deploying a random forest algorithm, two key parameters must be defined:
+
+1. The number of variables/choices to use for splitting the decisions at each node in the Random Forest trees: this is controlled via the **Mtry** argument of the `RandomForest()` function.  
+
+2. The number of trees that make-up the Random Forest. This is adjusted with the **ntree** argument of the `RandomForest()` function.  
+
+Since the choice of these parameters can impact the accuracy of the Random Forest classifier, we take a systematic approach by running preliminary simulations using tools in the `caret library`.
+
+```{r echo = TRUE}
+set.seed(123)
+simulation_control <- trainControl(method = "repeatedcv", number = 5, repeats = 1, 
+                     classProbs = TRUE, summaryFunction = twoClassSummary, search = "random")
+
+rF_model_check <- train(Churn ~., data = train_data, method = "rf", ntree = 2001, tuneLength = 3,
+                        metric = "ROC", trControl = simulation_control)
+
+rF_model_check
+```
+
+It can be observed that the search method gives an indication of an optimal **Mtry** = 3. The ntree parameter is set at 2001 to allow for increased accuracy, since the Dataset is relatively minimal. We can inform the choice of this ntree by observing the plot of the Random Forest model.
+
+```{r echo = TRUE}
+
+set.seed(123)
+rF_model <- randomForest(Churn ~., data = train_data, mtry = 3, ntree = 2001, importance = TRUE)
+plot(rF_model)
+```
+
+THe graph informs that the error margin tends to flatten out after around 500 decision trees. This allows the reduction of the overall number of decision trees employed, which saves computation time with negligible loss of accuracy.
+
+`Confusion matrix of current model`
+
+```{r echo = TRUE}
+
+rF_model
+```
+
+Now, re-creating the model with significantly reduced number of trees.
+
+```{r echo = TRUE}
+
+set.seed(123)
+rF_model <- randomForest(Churn ~., data = train_data, mtry = 3, ntree = 100, importance = TRUE)
+rF_model    # Checking the confusion matrix
+```
+
+The OOB error estimate is still approximately the same, which saves computation without sacrificing efficiency.
+
+Now that the model has been trained, we can validate the model using the testing data.
+
+```{r echo = TRUE}
+
+result <- predict(rF_model, test_data, type = "response")
+conf_mat <- confusionMatrix(result, test_data$Churn)
+conf_mat <- table(actual_Value = test_data$Churn, predicted_Value = result)
+conf_results(conf_mat)
+```
+
+The confusion matrix informs that the Random Forest, like the other algorithms is better at classifying "NO" than "YES". Its overall accuracy is at **79.57%**
+
+
+We can also observe the variable importance ranking of the Random Forest
+
+```{r echo = TRUE}
+
+varImpPlot(rF_model, sort=TRUE, n.var = 5, main = 'Top 5 Features/Predictors')
+```
+
+Just as seen in previous machine learning approaches, the resulting chart informs that the most important features/predictors are "Tenure, Monthly charges, contract status and Total Charges". This can be useful in advising the telecoms company to pay special attention to customers who have not commited to a long term contract and are likely to have a shorter tenure and reduced monthly/total charges. Since Internet service is also a top predictor of churn, incentives can be offered in form of internet stability, increased bandwidth, etc. to motivate loyalty and commitment to a longer contract/tenure.
+
+
+## **4. CONCLUSION**
+
+The Telecoms Dataset has been explored for predictors that inform of possible causes for the observed problem of customer churn. The application of three machine learning techniques to the Telecoms Dataset provided interesting insights into the data.  
+Overall, of the three applied machine learning techniques, the Logistic regression approach provided the best predictions and accuracy. As expected, the Random Forest algorithm had a slightly improved performance over the decision tree. However, the three algorithms had a consensus on the top predictors for customer churn based on the Telecoms Dataset: **Monthly charges, Total charges, and Tenure.**
+
+```{r}
+# Debugged !!!
+```
